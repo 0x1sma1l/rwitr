@@ -1,39 +1,51 @@
 use std::path::PathBuf;
 
-use clap::Parser;
+use clap::{Args, Parser};
 
-/// why is this running? 
+/// why is this running?
 #[derive(Parser, Debug)]
 #[command(version, about, long_about= None)]
 struct Cli {
-   name: Option<String>,
+    #[command(flatten)]
+    target: TargetArgs,
 
-   #[arg(short = 'p', long)]
-   pid: Option<u32>,
+    #[command(flatten)]
+    options: OptionsArgs,
+}
 
-   #[arg(short = 'o', long)]
-   port: Option<u16>,
+#[derive(Args, Debug)]
+struct TargetArgs {
+    name: Option<String>,
 
-   #[arg(short = 'f', long)]
-   file: Option<PathBuf>,
+    #[arg(short = 'p', long)]
+    pid: Option<u32>,
 
-   #[arg(short = 'c', long)]
-   container: Option<String>,
+    #[arg(short = 'o', long)]
+    port: Option<u16>,
 
-   #[arg(short = 'e', long)]
-   exact: bool,
+    #[arg(short = 'f', long)]
+    file: Option<PathBuf>,
 
-   #[arg(short = 't', long)]
-   tree: bool,
+    #[arg(short = 'c', long)]
+    container: Option<String>,
+}
 
-   #[arg(short = 'w', long)]
-   warnings: bool,
+#[derive(Args, Debug)]
+struct OptionsArgs {
+    #[arg(short = 'e', long)]
+    exact: bool,
+
+    #[arg(short = 't', long)]
+    tree: bool,
+
+    #[arg(short = 'w', long)]
+    warnings: bool,
 }
 
 impl Cli {
     fn into_request(self) -> Request {
         // translate into application model
-        
+
         unimplemented!();
     }
 }
