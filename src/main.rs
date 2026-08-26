@@ -51,18 +51,54 @@ struct OptionsArgs {
 }
 
 impl Cli {
-    fn into_request(self) -> Request {
-        // translate into application model
+    fn into_request(self) -> Result<Request, String> {
+        let mut targets = Vec::new();
 
-        unimplemented!();
+        if let Some(value) = self.target.name {
+            targets.push(Target::Name(value));
+        }
+
+        if let Some(value) = self.target.pid {
+            targets.push(Target::Pid(value));
+        }
+
+        if let Some(value) = self.target.port {
+            targets.push(Target::Port(value));
+        }
+
+        if let Some(value) = self.target.file {
+            targets.push(Target::File(value));
+        }
+
+        if let Some(value) = self.target.container {
+            targets.push(Target::Container(value));
+        }
+
+        if targets.is_empty() {
+            // no valid target was provided, therefore handle error here...
+            return Err(String::from("No valid target was provided"));
+        }
+
+        let req = Request {
+            targets,
+            options: Options {
+                exact: self.options.exact,
+                tree: self.options.tree,
+                warnings: self.options.warnings,
+            },
+        };
+
+        Ok(req)
     }
 }
 
+#[derive(Debug)]
 struct Request {
     targets: Vec<Target>,
     options: Options,
 }
 
+#[derive(Debug)]
 enum Target {
     Name(String),
     Pid(u32),
@@ -71,6 +107,7 @@ enum Target {
     Container(String),
 }
 
+#[derive(Debug)]
 struct Options {
     exact: bool,
     tree: bool,
@@ -78,5 +115,8 @@ struct Options {
 }
 
 fn main() {
-    let _cli = Cli::parse();
+    let cli = Cli::parse();
+    let request = cli.into_request().unwrap();
+
+    println!("{:#?}", request);
 }
