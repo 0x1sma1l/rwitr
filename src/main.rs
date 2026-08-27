@@ -1,4 +1,8 @@
 use std::path::PathBuf;
+mod core;
+
+use crate::core::inspect::inspect;
+use crate::core::model::{Options, Request, Target};
 
 use clap::{Args, Parser};
 
@@ -92,31 +96,9 @@ impl Cli {
     }
 }
 
-#[derive(Debug)]
-struct Request {
-    targets: Vec<Target>,
-    options: Options,
-}
-
-#[derive(Debug)]
-enum Target {
-    Name(String),
-    Pid(u32),
-    Port(u16),
-    File(PathBuf),
-    Container(String),
-}
-
-#[derive(Debug)]
-struct Options {
-    exact: bool,
-    tree: bool,
-    warnings: bool,
-}
-
 fn main() {
     let cli = Cli::parse();
     let request = cli.into_request().unwrap();
 
-    println!("{:#?}", request);
+    inspect(request);
 }
