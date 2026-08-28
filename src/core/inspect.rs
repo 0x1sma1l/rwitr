@@ -1,12 +1,15 @@
-use std::path::PathBuf;
+use std::{ffi::OsStr, path::PathBuf};
+use sysinfo::{Pid, Process, ProcessRefreshKind, ProcessesToUpdate, System};
 
 use crate::core::model::{Request, Target};
 
 pub fn inspect(request: Request) {
+    let mut sys = System::new();
+
     for target in request.targets {
         match target {
             Target::Name(name) => {
-                inspect_name(name);
+                inspect_name(&mut sys, name);
             }
             Target::Pid(p) => {
                 println!("{p}");
@@ -24,8 +27,19 @@ pub fn inspect(request: Request) {
     }
 }
 
-fn inspect_name(name: String) {
-    // this handles the Target::Name arm
+fn inspect_name(sys: &mut System, name: String) {
+    let name = OsStr::new(&name);
+
+    sys.refresh_processes_specifics(ProcessesToUpdate::All, true, ProcessRefreshKind::nothing());
+    let pids: Vec<Pid> = sys.processes_by_name(name).map(|p| p.pid()).collect();
+
+    sys.refresh_processes(ProcessesToUpdate::Some(&pids), true);
+    let processes: Vec<&Process> = pids
+        .into_iter()
+        .filter_map(|pid| sys.process(pid))
+        .collect();
+
+    println!("{:#?}", processes);
 }
 
 fn inspect_pid(pid: u32) {

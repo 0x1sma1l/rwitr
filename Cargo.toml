@@ -6,3 +6,4 @@ description = "A tool for investigating running processes"
 
 [dependencies]
 clap = { version = "4.6.6", features = ["derive"] }
+sysinfo = { version = "0.39.6", features = ["debug"] }
