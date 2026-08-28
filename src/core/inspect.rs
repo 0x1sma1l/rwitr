@@ -1,7 +1,7 @@
 use std::{ffi::OsStr, path::PathBuf};
 use sysinfo::{Pid, Process, ProcessRefreshKind, ProcessesToUpdate, System};
 
-use crate::core::model::{Request, Target};
+use crate::core::model::{ProcessInfo, Request, Target};
 
 pub fn inspect(request: Request) {
     let mut sys = System::new();
@@ -56,4 +56,16 @@ fn inspect_file(path: PathBuf) {
 
 fn inspect_container(container: String) {
     todo!();
+}
+
+fn convert_process(process: &Process) -> ProcessInfo {
+    ProcessInfo {
+        pid: process.pid().as_u32(),
+        parent: process.parent().map(|p| p.as_u32()),
+        name: process.name().to_string_lossy().to_string(),
+        executable: process.exe().map(|path| path.to_path_buf()),
+        cwd: process.cwd().map(|path| path.to_path_buf()),
+        status: process.status().into(),
+        user_id: process.user_id().map(|uid| uid.to_be()),
+    }
 }
