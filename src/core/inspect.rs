@@ -1,16 +1,17 @@
 use std::{ffi::OsStr, path::PathBuf};
 use sysinfo::{Pid, Process, ProcessRefreshKind, ProcessesToUpdate, System, Users};
 
-use crate::core::model::{ProcessInfo, Request, Target};
+use crate::core::model::{Options, ProcessInfo, Request, Target};
 
 pub fn inspect(request: Request) {
     let mut sys = System::new();
     let users = Users::new_with_refreshed_list();
+    let options = request.options;
 
     for target in request.targets {
         match target {
             Target::Name(name) => {
-                inspect_name(&mut sys, &users, name);
+                inspect_name(&mut sys, &users, &options, name);
             }
             Target::Pid(p) => {
                 println!("{p}");
@@ -28,11 +29,16 @@ pub fn inspect(request: Request) {
     }
 }
 
-fn inspect_name(sys: &mut System, users: &Users, name: String) {
+fn inspect_name(sys: &mut System, users: &Users, options: &Options, name: String) {
     let name = OsStr::new(&name);
 
     sys.refresh_processes_specifics(ProcessesToUpdate::All, true, ProcessRefreshKind::nothing());
-    let pids: Vec<Pid> = sys.processes_by_name(name).map(|p| p.pid()).collect();
+
+    let pids: Vec<Pid> = if !options.exact {
+        sys.processes_by_name(name).map(|p| p.pid()).collect()
+    } else {
+        sys.processes_by_exact_name(name).map(|p| p.pid()).collect()
+    };
 
     sys.refresh_processes(ProcessesToUpdate::Some(&pids), true);
     let raw_processes: Vec<&Process> = pids
