@@ -1,15 +1,16 @@
 use std::{ffi::OsStr, path::PathBuf};
-use sysinfo::{Pid, Process, ProcessRefreshKind, ProcessesToUpdate, System};
+use sysinfo::{Pid, Process, ProcessRefreshKind, ProcessesToUpdate, System, Users};
 
 use crate::core::model::{ProcessInfo, Request, Target};
 
 pub fn inspect(request: Request) {
     let mut sys = System::new();
+    let users = Users::new_with_refreshed_list();
 
     for target in request.targets {
         match target {
             Target::Name(name) => {
-                inspect_name(&mut sys, name);
+                inspect_name(&mut sys, &users, name);
             }
             Target::Pid(p) => {
                 println!("{p}");
@@ -27,18 +28,22 @@ pub fn inspect(request: Request) {
     }
 }
 
-fn inspect_name(sys: &mut System, name: String) {
+fn inspect_name(sys: &mut System, users: &Users, name: String) {
     let name = OsStr::new(&name);
 
     sys.refresh_processes_specifics(ProcessesToUpdate::All, true, ProcessRefreshKind::nothing());
     let pids: Vec<Pid> = sys.processes_by_name(name).map(|p| p.pid()).collect();
 
     sys.refresh_processes(ProcessesToUpdate::Some(&pids), true);
-    let processes: Vec<&Process> = pids
+    let raw_processes: Vec<&Process> = pids
         .into_iter()
         .filter_map(|pid| sys.process(pid))
         .collect();
 
+    let processes: Vec<ProcessInfo> = raw_processes
+        .into_iter()
+        .map(|process| convert_process(process, users))
+        .collect();
     println!("{:#?}", processes);
 }
 
@@ -58,7 +63,12 @@ fn inspect_container(container: String) {
     todo!();
 }
 
-fn convert_process(process: &Process) -> ProcessInfo {
+fn convert_process(process: &Process, users: &Users) -> ProcessInfo {
+    let username = process
+        .user_id()
+        .and_then(|uid| users.get_user_by_id(uid))
+        .map(|user| user.name().to_string());
+
     ProcessInfo {
         pid: process.pid().as_u32(),
         parent: process.parent().map(|p| p.as_u32()),
@@ -66,6 +76,6 @@ fn convert_process(process: &Process) -> ProcessInfo {
         executable: process.exe().map(|path| path.to_path_buf()),
         cwd: process.cwd().map(|path| path.to_path_buf()),
         status: process.status().into(),
-        user_id: process.user_id().map(|uid| uid.to_be()),
+        user_name: username,
     }
 }

@@ -35,7 +35,7 @@ pub struct ProcessInfo {
     pub executable: Option<PathBuf>,
     pub cwd: Option<PathBuf>,
     pub status: ProcessStatus,
-    pub user_id: Option<u32>,
+    pub user_name: Option<String>,
 }
 
 #[derive(Debug)]
