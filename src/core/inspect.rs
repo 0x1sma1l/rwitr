@@ -1,7 +1,7 @@
-use filelocksmith::find_processes_locking_path;
 use listeners::Protocol;
 use std::{
     ffi::OsStr,
+    io::ErrorKind,
     path::{Path, PathBuf},
     process::Command,
 };
@@ -132,7 +132,7 @@ fn inspect_file(
         return Err(AppError::FileNotFound(path));
     }
 
-    let pids: Vec<Pid> = get_pids_via_lsof(&path)
+    let pids: Vec<Pid> = get_pids_via_lsof(&path)?
         .into_iter()
         .map(Pid::from_u32)
         .collect();
@@ -177,17 +177,24 @@ fn convert_process(process: &Process, users: &Users) -> ProcessInfo {
     }
 }
 
-fn get_pids_via_lsof(file_path: &Path) -> Vec<u32> {
+fn get_pids_via_lsof(file_path: &Path) -> Result<Vec<u32>, AppError> {
     let output = Command::new("lsof").arg("-t").arg(file_path).output();
 
     match output {
         Ok(out) if out.status.success() => {
             let stdout_str = String::from_utf8_lossy(&out.stdout);
-            stdout_str
+            let pids = stdout_str
                 .lines()
                 .filter_map(|line| line.trim().parse::<u32>().ok())
-                .collect()
+                .collect();
+
+            Ok(pids)
         }
-        _ => Vec::new(),
+        Err(error) if error.kind() == ErrorKind::NotFound => Err(AppError::LsofUnavailable),
+
+        _ => {
+            // Some other IO error.
+            todo!()
+        }
     }
 }

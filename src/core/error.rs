@@ -7,4 +7,5 @@ pub enum AppError {
     PortNotFound(u16),
     FileNotFound(PathBuf),
     NoProcessUsingFile(PathBuf),
+    LsofUnavailable,
 }
