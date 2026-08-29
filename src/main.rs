@@ -100,5 +100,8 @@ fn main() {
     let cli = Cli::parse();
     let request = cli.into_request().unwrap();
 
-    inspect(request);
+    match inspect(request) {
+        Ok(res) => println!("{:#?}", res),
+        Err(e) => println!("{:?}", e),
+    }
 }

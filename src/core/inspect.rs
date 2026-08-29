@@ -1,3 +1,4 @@
+use listeners::Protocol;
 use std::{ffi::OsStr, path::PathBuf};
 use sysinfo::{Pid, Process, ProcessRefreshKind, ProcessesToUpdate, System, Users};
 
@@ -23,8 +24,9 @@ pub fn inspect(request: Request) -> Result<Vec<ProcessInfo>, AppError> {
                 let result = inspect_pid(&mut sys, &users, pid)?;
                 processes.push(result);
             }
-            Target::Port(p) => {
-                println!("{p}");
+            Target::Port(port) => {
+                let result = inspect_port(&mut sys, &users, port)?;
+                processes.extend(result);
             }
             Target::File(path) => {
                 println!("{:?}", path);
@@ -85,8 +87,34 @@ fn inspect_pid(sys: &mut System, users: &Users, pid: u32) -> Result<ProcessInfo,
     }
 }
 
-fn inspect_port(port: u16) {
-    todo!();
+fn inspect_port(sys: &mut System, users: &Users, port: u16) -> Result<Vec<ProcessInfo>, AppError> {
+    let mut pids = Vec::new();
+
+    if let Ok(p) = listeners::get_process_by_port(port, Protocol::TCP) {
+        pids.push(Pid::from_u32(p.pid));
+    }
+
+    if let Ok(p) = listeners::get_process_by_port(port, Protocol::UDP) {
+        pids.push(Pid::from_u32(p.pid));
+    }
+
+    sys.refresh_processes_specifics(ProcessesToUpdate::All, true, ProcessRefreshKind::nothing());
+    sys.refresh_processes(ProcessesToUpdate::Some(&pids), true);
+    let raw_processes: Vec<&Process> = pids
+        .into_iter()
+        .filter_map(|pid| sys.process(pid))
+        .collect();
+
+    let processes: Vec<ProcessInfo> = raw_processes
+        .into_iter()
+        .map(|process| convert_process(process, users))
+        .collect();
+
+    if processes.is_empty() {
+        Err(AppError::PortNotFound(port))
+    } else {
+        Ok(processes)
+    }
 }
 
 fn inspect_file(path: PathBuf) {
