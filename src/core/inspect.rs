@@ -1,6 +1,10 @@
 use filelocksmith::find_processes_locking_path;
 use listeners::Protocol;
-use std::{ffi::OsStr, path::PathBuf};
+use std::{
+    ffi::OsStr,
+    path::{Path, PathBuf},
+    process::Command,
+};
 use sysinfo::{Pid, Process, ProcessRefreshKind, ProcessesToUpdate, System, Users};
 
 use crate::core::{
@@ -128,9 +132,9 @@ fn inspect_file(
         return Err(AppError::FileNotFound(path));
     }
 
-    let pids: Vec<Pid> = find_processes_locking_path(&path)
+    let pids: Vec<Pid> = get_pids_via_lsof(&path)
         .into_iter()
-        .map(|pid| Pid::from_u32(pid as u32))
+        .map(Pid::from_u32)
         .collect();
 
     sys.refresh_processes_specifics(ProcessesToUpdate::All, true, ProcessRefreshKind::nothing());
@@ -170,5 +174,20 @@ fn convert_process(process: &Process, users: &Users) -> ProcessInfo {
         cwd: process.cwd().map(|path| path.to_path_buf()),
         status: process.status().into(),
         user_name: username,
+    }
+}
+
+fn get_pids_via_lsof(file_path: &Path) -> Vec<u32> {
+    let output = Command::new("lsof").arg("-t").arg(file_path).output();
+
+    match output {
+        Ok(out) if out.status.success() => {
+            let stdout_str = String::from_utf8_lossy(&out.stdout);
+            stdout_str
+                .lines()
+                .filter_map(|line| line.trim().parse::<u32>().ok())
+                .collect()
+        }
+        _ => Vec::new(),
     }
 }

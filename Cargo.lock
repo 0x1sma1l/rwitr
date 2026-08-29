@@ -141,12 +141,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "filelocksmith"
-version = "2.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "82260c149a81b94aa3049e18c495fce35350c9cab32b488987042a78c446ca07"
-
-[[package]]
 name = "find-msvc-tools"
 version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -303,7 +297,6 @@ name = "rwitr"
 version = "0.1.0"
 dependencies = [
  "clap",
- "filelocksmith",
  "listeners",
  "sysinfo",
 ]

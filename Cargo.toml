@@ -6,6 +6,5 @@ description = "A tool for investigating running processes"
 
 [dependencies]
 clap = { version = "4.6.6", features = ["derive"] }
-filelocksmith = "2.1.0"
 listeners = "0.6.1"
 sysinfo = { version = "0.39.6", features = ["debug"] }
