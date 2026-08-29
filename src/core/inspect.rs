@@ -1,3 +1,4 @@
+use filelocksmith::find_processes_locking_path;
 use listeners::Protocol;
 use std::{ffi::OsStr, path::PathBuf};
 use sysinfo::{Pid, Process, ProcessRefreshKind, ProcessesToUpdate, System, Users};
@@ -29,7 +30,8 @@ pub fn inspect(request: Request) -> Result<Vec<ProcessInfo>, AppError> {
                 processes.extend(result);
             }
             Target::File(path) => {
-                println!("{:?}", path);
+                let result = inspect_file(&mut sys, &users, path)?;
+                processes.extend(result);
             }
             Target::Container(c) => {
                 println!("{c}");
@@ -117,8 +119,37 @@ fn inspect_port(sys: &mut System, users: &Users, port: u16) -> Result<Vec<Proces
     }
 }
 
-fn inspect_file(path: PathBuf) {
-    todo!();
+fn inspect_file(
+    sys: &mut System,
+    users: &Users,
+    path: PathBuf,
+) -> Result<Vec<ProcessInfo>, AppError> {
+    if !path.exists() {
+        return Err(AppError::FileNotFound(path));
+    }
+
+    let pids: Vec<Pid> = find_processes_locking_path(&path)
+        .into_iter()
+        .map(|pid| Pid::from_u32(pid as u32))
+        .collect();
+
+    sys.refresh_processes_specifics(ProcessesToUpdate::All, true, ProcessRefreshKind::nothing());
+    sys.refresh_processes(ProcessesToUpdate::Some(&pids), true);
+    let raw_processes: Vec<&Process> = pids
+        .into_iter()
+        .filter_map(|pid| sys.process(pid))
+        .collect();
+
+    let processes: Vec<ProcessInfo> = raw_processes
+        .into_iter()
+        .map(|process| convert_process(process, users))
+        .collect();
+
+    if processes.is_empty() {
+        Err(AppError::NoProcessUsingFile(path))
+    } else {
+        Ok(processes)
+    }
 }
 
 fn inspect_container(container: String) {
