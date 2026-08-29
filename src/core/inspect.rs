@@ -1,20 +1,27 @@
 use std::{ffi::OsStr, path::PathBuf};
 use sysinfo::{Pid, Process, ProcessRefreshKind, ProcessesToUpdate, System, Users};
 
-use crate::core::model::{Options, ProcessInfo, Request, Target};
+use crate::core::{
+    error::AppError,
+    model::{Options, ProcessInfo, Request, Target},
+};
 
-pub fn inspect(request: Request) {
+pub fn inspect(request: Request) -> Result<Vec<ProcessInfo>, AppError> {
     let mut sys = System::new();
     let users = Users::new_with_refreshed_list();
     let options = request.options;
 
+    let mut processes = Vec::new();
+
     for target in request.targets {
         match target {
             Target::Name(name) => {
-                inspect_name(&mut sys, &users, &options, name);
+                let result = inspect_name(&mut sys, &users, &options, name)?;
+                processes.extend(result);
             }
-            Target::Pid(p) => {
-                println!("{p}");
+            Target::Pid(pid) => {
+                let result = inspect_pid(&mut sys, &users, pid)?;
+                processes.push(result);
             }
             Target::Port(p) => {
                 println!("{p}");
@@ -27,17 +34,26 @@ pub fn inspect(request: Request) {
             }
         }
     }
+
+    Ok(processes)
 }
 
-fn inspect_name(sys: &mut System, users: &Users, options: &Options, name: String) {
-    let name = OsStr::new(&name);
+fn inspect_name(
+    sys: &mut System,
+    users: &Users,
+    options: &Options,
+    name: String,
+) -> Result<Vec<ProcessInfo>, AppError> {
+    let os_name = OsStr::new(&name);
 
     sys.refresh_processes_specifics(ProcessesToUpdate::All, true, ProcessRefreshKind::nothing());
 
     let pids: Vec<Pid> = if !options.exact {
-        sys.processes_by_name(name).map(|p| p.pid()).collect()
+        sys.processes_by_name(os_name).map(|p| p.pid()).collect()
     } else {
-        sys.processes_by_exact_name(name).map(|p| p.pid()).collect()
+        sys.processes_by_exact_name(os_name)
+            .map(|p| p.pid())
+            .collect()
     };
 
     sys.refresh_processes(ProcessesToUpdate::Some(&pids), true);
@@ -50,11 +66,23 @@ fn inspect_name(sys: &mut System, users: &Users, options: &Options, name: String
         .into_iter()
         .map(|process| convert_process(process, users))
         .collect();
-    println!("{:#?}", processes);
+
+    if processes.is_empty() {
+        Err(AppError::ProcessNameNotFound(name))
+    } else {
+        Ok(processes)
+    }
 }
 
-fn inspect_pid(pid: u32) {
-    todo!();
+fn inspect_pid(sys: &mut System, users: &Users, pid: u32) -> Result<ProcessInfo, AppError> {
+    sys.refresh_processes_specifics(ProcessesToUpdate::All, true, ProcessRefreshKind::nothing());
+
+    sys.refresh_processes(ProcessesToUpdate::Some(&[Pid::from_u32(pid)]), true);
+
+    match sys.process(Pid::from_u32(pid)) {
+        Some(process) => Ok(convert_process(process, users)),
+        None => Err(AppError::ProcessNotFound(pid)),
+    }
 }
 
 fn inspect_port(port: u16) {
